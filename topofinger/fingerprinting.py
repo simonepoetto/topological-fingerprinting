@@ -41,7 +41,7 @@ def compute_success_rate(sim_matrix, kind='corr'):
             win = np.argmax(sub)
         if win==i:
             correct1 += 1
-    return np.round(correct1/n_sub,2)*100, np.round(correct2/n_sub,2)*100
+    return 100*correct1/n_sub, 100*correct2/n_sub
 
 def compute_effect_size_individuals(dist_matrix, n_subject):
     n_tot = dist_matrix.shape[0]
@@ -103,3 +103,36 @@ def compute_differential_power(conn_dict, z=False):
 
 
     
+
+def compute_differential_power_fast(conn_dict, z=False):
+    """Vectorized version of compute_differential_power (same formula and output, much faster)."""
+    n = len(conn_dict.keys())
+    if z:
+        s0 = np.array([zscore(sub[0], axis=None) for sub in conn_dict.values()])
+        s1 = np.array([zscore(sub[1], axis=None) for sub in conn_dict.values()])
+    else:
+        s0 = np.array([sub[0] for sub in conn_dict.values()])
+        s1 = np.array([sub[1] for sub in conn_dict.values()])
+    m = s0[0].shape[0]
+    iu, ju = np.triu_indices(m, 1)
+    s0u = s0[:, iu, ju].astype(np.float64)
+    s1u = s1[:, iu, ju].astype(np.float64)
+    del s0, s1
+    acc = np.zeros(len(iu))
+    others = np.ones(n, dtype=bool)
+    with np.errstate(divide='ignore'):
+        for i in range(n):
+            others[i] = False
+            ii = s0u[i] * s1u[i]
+            ij = s0u[i] * s1u[others]
+            ji = s1u[i] * s0u[others]
+            count = (ij > ii).sum(axis=0) + (ji > ii).sum(axis=0)
+            zero = (ii == 0) & (ij.sum(axis=0) == 0) & (ji.sum(axis=0) == 0)
+            v = np.where(zero, 1.0, count / ((n - 1) * 2))
+            acc += -np.log(v / 2)  # original symmetrizes the upper triangle: (S + S.T) / 2
+            others[i] = True
+    differential_power = np.full((m, m), np.inf)  # diagonal is -log(0) in the original
+    differential_power[iu, ju] = acc
+    differential_power[ju, iu] = acc
+    differential_power[np.isinf(differential_power)] = np.log(0.1 / ((n - 1) * 2))
+    return differential_power

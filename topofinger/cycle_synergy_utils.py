@@ -153,77 +153,46 @@ def calculate_mean_random_synergy(num_links_to_sample, synergy_matrix):
     return np.nanmean(random_synergies)
 
 
-def calculate_mean_random_synergy_fc_matched(cycles, synergy_matrix, fc_matrix):
+def calculate_mean_random_synergy_fc_matched(cycles, synergy_matrix, fc_matrix, tol=0.02):
     """
-    Calculates the mean synergy of random links matched by FC correlation range
-    of the internal links of the provided cycles.
+    Calculates the mean synergy of random links matched one-to-one to the FC of the internal links.
+
+    For each internal link, one link is drawn at random among all links whose FC lies within
+    +/- tol of that internal link's FC, so the null has the same FC distribution as the internal links.
 
     Args:
         cycles (list): List of representative cycles for the subject.
         synergy_matrix (np.ndarray): The NxN synergy matrix.
         fc_matrix (np.ndarray): The NxN functional connectivity matrix.
+        tol (float): FC matching tolerance.
 
     Returns:
         float: Mean synergy of FC-matched random links. Returns NaN if not possible.
     """
-    n_nodes = synergy_matrix.shape[0]
-    if n_nodes < 2 or not cycles:
+    all_internal_links = [link for cycle in cycles for link in get_cycle_missing_links(cycle)]
+    if synergy_matrix.shape[0] < 2 or not all_internal_links:
         return np.nan
 
-    all_internal_links = [link for cycle in cycles for link in get_cycle_missing_links(cycle)]
-    if not all_internal_links:
-        return np.nan # No internal links to match
-    
-    all_border_links = [link for cycle in cycles for link in cycle]
-    if not all_border_links:
-        return np.nan # No border links to define number of samples
+    internal_fc_values = np.array(get_links_weights(all_internal_links, fc_matrix), dtype=float)
+    internal_fc_values = internal_fc_values[~np.isnan(internal_fc_values)]
+    if internal_fc_values.size == 0:
+        return np.nan
 
-    num_internal_links = len(all_internal_links)
-    num_border_links = len(all_border_links)
-
-    # Get FC values of the actual internal links
-    internal_fc_values = get_links_weights(all_internal_links, fc_matrix)
-    internal_fc_values = [v for v in internal_fc_values if not np.isnan(v)] # Clean NaNs
-
-    if not internal_fc_values:
-         return np.nan # No valid FC values for internal links
-
-    # Define the FC range (e.g., min/max or percentiles)
-    # Using min/max for simplicity, similar to notebook's percentile approach conceptually
-    min_fc = np.nanmin(internal_fc_values)
-    max_fc = np.nanmax(internal_fc_values)
-
-    # Flatten FC and Synergy matrices (upper triangle, excluding diagonal)
-    # Assuming symmetric matrices
+    # Upper triangles, sorted by FC, so the candidates for each internal link are a contiguous range
     fc_flat = squareform(fc_matrix, checks=False)
     synergy_flat = squareform(synergy_matrix, checks=False)
+    valid = ~np.isnan(fc_flat) & ~np.isnan(synergy_flat)
+    order = np.argsort(fc_flat[valid])
+    fc_sorted = fc_flat[valid][order]
+    synergy_sorted = synergy_flat[valid][order]
 
-    # Filter flat indices based on FC range
-    # Combine fc_flat and synergy_flat for easier filtering
-    valid_indices = ~np.isnan(fc_flat) & ~np.isnan(synergy_flat)
-    fc_flat_valid = fc_flat[valid_indices]
-    synergy_flat_valid = synergy_flat[valid_indices]
-
-    matched_indices = np.where((fc_flat_valid >= min_fc) & (fc_flat_valid <= max_fc))[0]
-
-    if len(matched_indices) == 0:
-        print(f"Warning: No links found in the FC range [{min_fc:.3f}, {max_fc:.3f}].")
+    lo = np.searchsorted(fc_sorted, internal_fc_values - tol, side='left')
+    hi = np.searchsorted(fc_sorted, internal_fc_values + tol, side='right')
+    ok = hi > lo
+    if not ok.any():
         return np.nan
-
-    # Get synergy values for the links within the matched FC range
-    synergies_in_fc_range = synergy_flat_valid[matched_indices]
-
-    # Sample N links from this subset, where N is the number of original internal links
-    num_to_sample = min(num_internal_links, len(synergies_in_fc_range))
-    if num_to_sample == 0:
-        return np.nan
-
-    if len(synergies_in_fc_range) < num_internal_links:
-         print(f"Warning: Only {len(synergies_in_fc_range)} links match FC range. Sampling all.")
-
-    random_matched_synergies = np.random.choice(synergies_in_fc_range, size=num_to_sample, replace=False)
-
-    return np.nanmean(random_matched_synergies)
+    picks = lo[ok] + (np.random.random(ok.sum()) * (hi[ok] - lo[ok])).astype(int)
+    return np.nanmean(synergy_sorted[picks])
 
 
 def calculate_mean_random_cycle_internal_synergy(cycles, synergy_matrix):
@@ -296,7 +265,7 @@ def get_subject_synergy_metrics(cycles, synergy_matrix, fc_matrix):
               'border': Mean synergy of cycle border links.
               'internal': Mean synergy of cycle internal links.
               'random': Mean synergy of random links (matched count to internal).
-              'random_fc_matched': Mean synergy of random links matched by internal links' FC range.
+              'random_fc_matched': Mean synergy of random links matched one-to-one to the internal links' FC.
               'random_cycle_internal': Mean internal synergy from randomly generated cycles.
               Returns NaNs for values that cannot be calculated.
     """

@@ -8,11 +8,6 @@ import pandas as pd
 import sys
 import os
 
-sys.path.append(os.path.expanduser('~/projects/info/'))
-
-
-
-#from pid import syn_TDMI, red_TDMI
 from itertools import combinations
 
 from tqdm.notebook import tqdm

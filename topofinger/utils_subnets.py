@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 import itertools
-from utils import threshold_matrix
+from .utils import threshold_matrix
 
 
 

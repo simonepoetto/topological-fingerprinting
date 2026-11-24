@@ -4,7 +4,7 @@ based on the gaussian copula
 '''
 
 
-import gcmi
+from . import gcmi
 
 import numpy as np
 
@@ -12,7 +12,7 @@ from itertools import combinations
 
 from tqdm.notebook import tqdm
 
-from hoi.metrics import atoms_phiID, RedundancyphiID, psi_synergy
+from hoi.metrics import AtomsPhiID, RedundancyphiID #, psi_synergy
 
 from scipy.spatial.distance import squareform
 
@@ -105,7 +105,13 @@ def syn_matrix(data, delay=1, kind='tdmi'):
     Returns:
     - syn_matrix: numpy.ndarray
         The synergy matrix of shape (N, N), where N is the number of timeseries.
+
+    tdmi = first version manually implemented using MMI formula directly for red and syn
+    psi = psi synergy, basically the same as tdmi
+    atoms_phi = based on hoi matte library, only the sinergistic atom
+    phiR = based on hoi matte library, using the atoms that compute integrated information including redundancy
     """
+
 
     N = data.shape[0]
     syn_matrix = np.zeros((N,N))
@@ -115,7 +121,7 @@ def syn_matrix(data, delay=1, kind='tdmi'):
             syn_matrix[i1,i2] = syn
         syn_matrix = syn_matrix + syn_matrix.T
     elif kind == 'atoms_phi':
-        model = atoms_phiID(data)
+        model = AtomsPhiID(data.T)
         results = model.fit(minsize = 2, maxsize=2)
         syn_matrix = squareform(results[:,0])
     elif kind == 'psi':
@@ -123,7 +129,7 @@ def syn_matrix(data, delay=1, kind='tdmi'):
         results = model.fit(minsize = 2, maxsize=2)
         syn_matrix = squareform(results[:,0])  
     elif kind == 'phiR':
-        model = atoms_phiID(data.T)
+        model = AtomsPhiID(data.T)
         results = model.fit(minsize=2, maxsize=2, atoms=['sts','u1ts','u2ts','stu2','stu1','rts','str','u1tu2','u2tu1'])
         syn_matrix = squareform(results[:,0])
     else:

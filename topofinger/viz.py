@@ -12,8 +12,8 @@ import seaborn as sns
 from scipy.spatial.distance import squareform
 from tqdm.notebook import tqdm
 
-from utils import threshold_matrix
-from fingerprinting import compute_idiff, compute_effect_size, compute_success_rate
+from .utils import threshold_matrix
+from .fingerprinting import compute_idiff, compute_effect_size, compute_success_rate
 
 
 def plot_identifiability(sim_matrix, ax=None, title='title', kind='corr', vmin=None, vmax=None, cmap=None):
@@ -50,7 +50,7 @@ def plot_identifiability(sim_matrix, ax=None, title='title', kind='corr', vmin=N
     #ax.text(0.5, -0.35, f'Idiff = {round(idiff, 2)} (Is={round(i_self, 2)}, Io={round(i_others, 2)})\nEffect Size = {round(effect_size, 2)}\n\nSuccess Rate s1 = {round(success_rate1, 2)}%\nSuccess Rate s2 = {round(success_rate2, 2)}%', transform=ax.transAxes, ha='center', fontsize=14)
     #ax.text(0.5, -0.35, f'Effect Size = {round(effect_size, 2)}\n\nSuccess Rate s1 = {round(success_rate1, 2)}%\nSuccess Rate s2 = {round(success_rate2, 2)}%', transform=ax.transAxes, ha='center', fontsize=14)
     ax.text(0.5, -0.1, f'Effect Size = {round(effect_size, 2)}', transform=ax.transAxes, ha='center', fontsize=14)
-    ax.text(0.5, -0.2, f'Success Rate = {round((success_rate1+success_rate2)/2, 2)}', transform=ax.transAxes, ha='center', fontsize=14)
+    ax.text(0.5, -0.2, f'Success Rate = {(success_rate1+success_rate2)/2:.1f}', transform=ax.transAxes, ha='center', fontsize=14)
     
     
 
@@ -280,7 +280,7 @@ def visualize_bplot(insub_dists,outsub_dists,title=''):
     positions = [0,1]
     medianprops = dict(linestyle='-', linewidth=2.5, color='slategrey')
     whiskerprops = dict(linestyle='-', color='slategrey')
-    bplot = plt.boxplot(df.values, labels=df.columns, patch_artist=True,showbox=False,
+    bplot = plt.boxplot(df.values, tick_labels=df.columns, patch_artist=True,showbox=False,
                         showcaps=False,medianprops=medianprops,whiskerprops=whiskerprops, positions=positions); 
     plt.ylabel('avg distance', fontsize=20)
     effect_size = np.round(compute_effsize(df[df.columns[0]], df[df.columns[1]]),3)
@@ -310,7 +310,7 @@ def visualize_bplot_new(insub_dists,outsub_dists,title=''):
     whiskerprops = dict(linestyle='-', color='black')
     
     #bplot = sns.boxplot(df.values, labels=df.columns)
-    bplot = plt.boxplot(df.values, labels=df.columns, patch_artist=True, showbox=True,
+    bplot = plt.boxplot(df.values, tick_labels=df.columns, patch_artist=True, showbox=True,
                         showcaps=True,medianprops=medianprops,whiskerprops=whiskerprops, positions=positions);
     for patch in bplot['boxes']:
         patch.set_facecolor('#d88f8f')
